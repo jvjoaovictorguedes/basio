@@ -1,14 +1,23 @@
-import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/authz";
-import { getVisibleClients } from "@/lib/clients-data";
+import { prisma } from "@/lib/prisma";
+import { MyTasksView } from "./my-tasks-view";
 
 export default async function HomePage() {
-  const user = await requireUser();
-  const clients = await getVisibleClients(user);
+  await requireUser();
 
-  if (clients.length === 1) {
-    redirect(`/clientes/${clients[0].id}/producao`);
-  }
+  const [tasks, cards] = await Promise.all([
+    prisma.internalTask.findMany({
+      where: { status: "PENDENTE" },
+      include: { client: { select: { id: true, name: true } } },
+    }),
+    prisma.contentCard.findMany({
+      where: { stage: { awaiting: "STUDIO" } },
+      include: {
+        client: { select: { id: true, name: true } },
+        stage: { select: { name: true } },
+      },
+    }),
+  ]);
 
-  redirect("/clientes");
+  return <MyTasksView tasks={tasks} cards={cards} />;
 }

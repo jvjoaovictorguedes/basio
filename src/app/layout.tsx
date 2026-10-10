@@ -9,8 +9,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Basio Studio",
-  description: "Gestão de conteúdo para clientes de social media",
+  title: "Jota Studio",
+  description: "Gestão interna da Jô para todos os clientes",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

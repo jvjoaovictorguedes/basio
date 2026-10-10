@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireClientAccess } from "@/lib/authz";
+import { requireUser } from "@/lib/authz";
 import { IdeaBankView } from "./idea-bank-view";
 
 export default async function IdeiasPage({
@@ -8,7 +8,7 @@ export default async function IdeiasPage({
   params: Promise<{ clientId: string }>;
 }) {
   const { clientId } = await params;
-  await requireClientAccess(clientId);
+  await requireUser();
 
   const [ideas, pillars] = await Promise.all([
     prisma.ideaBank.findMany({

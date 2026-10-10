@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import clsx from "clsx";
+import { formatDatePtBR } from "@/lib/dates";
 import {
   createFolderAction,
   deleteDocumentAction,
@@ -14,6 +16,8 @@ type Document = {
   id: string;
   name: string;
   folderId: string | null;
+  isContract: boolean;
+  contractExpiresAt: string | Date | null;
   file: { id: string; mimeType: string; sizeBytes: number };
 };
 
@@ -21,6 +25,14 @@ function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function contractAlert(expiresAt: string | Date | null) {
+  if (!expiresAt) return null;
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  if (days < 0) return { label: "Vencido", urgent: true };
+  if (days <= 30) return { label: `Vence em ${days} dia${days === 1 ? "" : "s"}`, urgent: true };
+  return { label: `Vence em ${formatDatePtBR(new Date(expiresAt))}`, urgent: false };
 }
 
 export function DocumentsView({
@@ -34,6 +46,7 @@ export function DocumentsView({
 }) {
   const router = useRouter();
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [isContract, setIsContract] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const breadcrumb = useMemo(() => {
@@ -63,6 +76,7 @@ export function DocumentsView({
       await uploadDocumentAction(clientId, currentFolderId, formData);
       router.refresh();
     });
+    setIsContract(false);
   }
 
   function handleDeleteFolder(folderId: string) {
@@ -97,25 +111,44 @@ export function DocumentsView({
             </span>
           ))}
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleCreateFolder}
-            disabled={isPending}
-            className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface"
-          >
-            + Nova pasta
-          </button>
-          <form action={handleUpload} className="flex items-center gap-1">
-            <input type="file" name="file" required className="max-w-40 text-xs" />
-            <button
-              type="submit"
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-hover"
-            >
-              Enviar
-            </button>
-          </form>
-        </div>
+        <button
+          onClick={handleCreateFolder}
+          disabled={isPending}
+          className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface"
+        >
+          + Nova pasta
+        </button>
       </div>
+
+      <form
+        action={handleUpload}
+        className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-3"
+      >
+        <input type="file" name="file" required className="max-w-56 text-xs" />
+        <label className="flex items-center gap-1.5 text-sm text-foreground">
+          <input
+            type="checkbox"
+            name="isContract"
+            checked={isContract}
+            onChange={(e) => setIsContract(e.target.checked)}
+            className="h-4 w-4"
+          />
+          É um contrato
+        </label>
+        {isContract && (
+          <input
+            type="date"
+            name="contractExpiresAt"
+            className="rounded-md border border-border px-2 py-1.5 text-sm"
+          />
+        )}
+        <button
+          type="submit"
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-hover"
+        >
+          Enviar
+        </button>
+      </form>
 
       <div className="space-y-1">
         {childFolders.map((folder) => (
@@ -138,28 +171,41 @@ export function DocumentsView({
           </div>
         ))}
 
-        {childDocuments.map((doc) => (
-          <div
-            key={doc.id}
-            className="flex items-center justify-between rounded-md border border-border bg-surface px-3 py-2"
-          >
-            <a
-              href={`/api/files/${doc.file.id}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground hover:text-primary"
+        {childDocuments.map((doc) => {
+          const alert = doc.isContract ? contractAlert(doc.contractExpiresAt) : null;
+          return (
+            <div
+              key={doc.id}
+              className="flex items-center justify-between rounded-md border border-border bg-surface px-3 py-2"
             >
-              📄 <span className="truncate">{doc.name}</span>
-              <span className="flex-none text-xs text-muted">{formatSize(doc.file.sizeBytes)}</span>
-            </a>
-            <button
-              onClick={() => handleDeleteDocument(doc.id)}
-              className="text-xs text-muted hover:text-danger"
-            >
-              excluir
-            </button>
-          </div>
-        ))}
+              <a
+                href={`/api/files/${doc.file.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground hover:text-primary"
+              >
+                {doc.isContract ? "📑" : "📄"} <span className="truncate">{doc.name}</span>
+                <span className="flex-none text-xs text-muted">{formatSize(doc.file.sizeBytes)}</span>
+                {alert && (
+                  <span
+                    className={clsx(
+                      "flex-none rounded px-1.5 py-0.5 text-[11px] font-medium",
+                      alert.urgent ? "bg-danger/10 text-danger" : "bg-background text-muted",
+                    )}
+                  >
+                    {alert.label}
+                  </span>
+                )}
+              </a>
+              <button
+                onClick={() => handleDeleteDocument(doc.id)}
+                className="text-xs text-muted hover:text-danger"
+              >
+                excluir
+              </button>
+            </div>
+          );
+        })}
 
         {childFolders.length === 0 && childDocuments.length === 0 && (
           <p className="text-sm text-muted">Nenhum arquivo nesta pasta ainda.</p>

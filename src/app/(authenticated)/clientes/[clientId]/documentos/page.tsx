@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireClientAccess } from "@/lib/authz";
+import { requireUser } from "@/lib/authz";
 import { DocumentsView } from "./documents-view";
 
 export default async function DocumentosPage({
@@ -8,7 +8,7 @@ export default async function DocumentosPage({
   params: Promise<{ clientId: string }>;
 }) {
   const { clientId } = await params;
-  await requireClientAccess(clientId);
+  await requireUser();
 
   const [folders, documents] = await Promise.all([
     prisma.documentFolder.findMany({ where: { clientId }, orderBy: { name: "asc" } }),

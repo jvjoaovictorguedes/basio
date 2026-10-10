@@ -4,17 +4,15 @@ import { useState } from "react";
 import clsx from "clsx";
 import { Sidebar } from "@/components/sidebar";
 
-type SidebarClient = { id: string; name: string; color: string | null };
+type GeneralPage = { id: string; title: string; type: string };
 
 export function AppShell({
-  clients,
   userName,
-  userRole,
+  generalPages,
   children,
 }: {
-  clients: SidebarClient[];
   userName: string;
-  userRole: "ADMIN" | "COLLABORATOR";
+  generalPages: GeneralPage[];
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -34,7 +32,7 @@ export function AppShell({
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <Sidebar clients={clients} userName={userName} userRole={userRole} />
+        <Sidebar userName={userName} generalPages={generalPages} />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -53,7 +51,7 @@ export function AppShell({
               />
             </svg>
           </button>
-          <span className="text-sm font-semibold text-foreground">Basio Studio</span>
+          <span className="text-sm font-semibold text-foreground">Jota Studio</span>
         </div>
 
         <main className="flex-1 overflow-y-auto">{children}</main>

@@ -1,78 +1,61 @@
 import { prisma } from "@/lib/prisma";
+import type { StrategyKey } from "@/generated/prisma/client";
 
-export const DEFAULT_STAGES = [
-  "Ideia",
-  "Roteiro",
-  "Aprovação do roteiro",
-  "Produção",
-  "Aprovação do material",
-  "Agendado",
-  "Publicado",
+export const DEFAULT_STAGES: { name: string; awaiting: "STUDIO" | "CLIENT"; isFinal?: boolean }[] = [
+  { name: "Ideia", awaiting: "STUDIO" },
+  { name: "Roteiro", awaiting: "STUDIO" },
+  { name: "Aprovação do roteiro", awaiting: "CLIENT" },
+  { name: "Produção", awaiting: "STUDIO" },
+  { name: "Aprovação do material", awaiting: "CLIENT" },
+  { name: "Agendado", awaiting: "STUDIO" },
+  { name: "Publicado", awaiting: "STUDIO", isFinal: true },
 ];
 
-export const DEFAULT_BRAND_PAGES = [
-  "Estratégia",
-  "Posicionamento",
-  "Persona",
-  "Tom de voz",
-  "Pilares de conteúdo",
+export const STRATEGY_KEYS: StrategyKey[] = [
+  "POSICIONAMENTO",
+  "PERSONA",
+  "TOM_DE_VOZ",
+  "PILARES",
 ];
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
-/** Cria o cliente já com a estrutura padrão: etapas do kanban + páginas da central da marca. */
+/** Cria o cliente já com a estrutura padrão do KardoJota: etapas do kanban + páginas de estratégia. */
 export async function createClientWithDefaults(input: {
   name: string;
-  color?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  service?: string | null;
   createdById: string;
 }) {
-  const baseSlug = slugify(input.name) || "cliente";
-
   return prisma.$transaction(async (tx) => {
-    let slug = baseSlug;
-    let suffix = 1;
-    while (await tx.client.findUnique({ where: { slug } })) {
-      suffix += 1;
-      slug = `${baseSlug}-${suffix}`;
-    }
-
     const client = await tx.client.create({
       data: {
         name: input.name,
-        slug,
-        color: input.color ?? null,
+        contactName: input.contactName ?? null,
+        contactEmail: input.contactEmail ?? null,
+        contactPhone: input.contactPhone ?? null,
+        service: input.service ?? null,
         createdById: input.createdById,
       },
     });
 
     await tx.pipelineStage.createMany({
-      data: DEFAULT_STAGES.map((name, index) => ({
+      data: DEFAULT_STAGES.map((stage, index) => ({
         clientId: client.id,
-        name,
+        name: stage.name,
         position: index,
+        awaiting: stage.awaiting,
+        isFinal: stage.isFinal ?? false,
       })),
     });
 
-    for (const [index, title] of DEFAULT_BRAND_PAGES.entries()) {
-      await tx.brandCenterPage.create({
-        data: {
-          clientId: client.id,
-          title,
-          slug: slugify(title),
-          position: index,
-          sections: {
-            create: [{ heading: title, content: "", position: 0 }],
-          },
-        },
-      });
-    }
+    await tx.strategyPage.createMany({
+      data: STRATEGY_KEYS.map((key) => ({
+        clientId: client.id,
+        key,
+        content: "",
+      })),
+    });
 
     return client;
   });

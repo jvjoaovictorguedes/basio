@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { assertClientAccess } from "@/lib/authz";
+import { assertUser } from "@/lib/authz";
 
 export async function createFolderAction(
   clientId: string,
   parentFolderId: string | null,
   name: string,
 ) {
-  await assertClientAccess(clientId);
+  await assertUser();
   if (!name.trim()) throw new Error("Informe o nome da pasta.");
 
   await prisma.documentFolder.create({
@@ -19,16 +19,9 @@ export async function createFolderAction(
   revalidatePath(`/clientes/${clientId}/documentos`);
 }
 
-export async function renameFolderAction(folderId: string, name: string) {
-  const folder = await prisma.documentFolder.findUniqueOrThrow({ where: { id: folderId } });
-  await assertClientAccess(folder.clientId);
-  await prisma.documentFolder.update({ where: { id: folderId }, data: { name } });
-  revalidatePath(`/clientes/${folder.clientId}/documentos`);
-}
-
 export async function deleteFolderAction(folderId: string) {
   const folder = await prisma.documentFolder.findUniqueOrThrow({ where: { id: folderId } });
-  await assertClientAccess(folder.clientId);
+  await assertUser();
   await prisma.documentFolder.delete({ where: { id: folderId } });
   revalidatePath(`/clientes/${folder.clientId}/documentos`);
 }
@@ -38,12 +31,15 @@ export async function uploadDocumentAction(
   folderId: string | null,
   formData: FormData,
 ) {
-  const user = await assertClientAccess(clientId);
+  const user = await assertUser();
   const file = formData.get("file") as File | null;
   if (!file || file.size === 0) throw new Error("Selecione um arquivo.");
 
   const maxSize = Number(process.env.MAX_UPLOAD_SIZE_BYTES ?? 20 * 1024 * 1024);
   if (file.size > maxSize) throw new Error("Arquivo muito grande.");
+
+  const isContract = formData.get("isContract") === "on";
+  const contractExpiresAtRaw = String(formData.get("contractExpiresAt") || "");
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -63,6 +59,8 @@ export async function uploadDocumentAction(
       folderId,
       fileId: storedFile.id,
       name: file.name,
+      isContract,
+      contractExpiresAt: isContract && contractExpiresAtRaw ? new Date(contractExpiresAtRaw) : null,
       uploadedById: user.id,
     },
   });
@@ -72,7 +70,7 @@ export async function uploadDocumentAction(
 
 export async function deleteDocumentAction(documentId: string) {
   const doc = await prisma.document.findUniqueOrThrow({ where: { id: documentId } });
-  await assertClientAccess(doc.clientId);
+  await assertUser();
   await prisma.document.delete({ where: { id: documentId } });
   await prisma.file.delete({ where: { id: doc.fileId } }).catch(() => {});
   revalidatePath(`/clientes/${doc.clientId}/documentos`);

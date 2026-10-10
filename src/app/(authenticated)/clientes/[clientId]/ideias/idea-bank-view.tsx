@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import clsx from "clsx";
-import { FORMAT_LABELS, FORMAT_OPTIONS, CHANNEL_LABELS, CHANNEL_OPTIONS } from "@/lib/labels";
 import { convertIdeaToCardAction, createIdeaAction, deleteIdeaAction } from "./actions";
 
 type Pillar = { id: string; name: string; color: string | null };
@@ -12,8 +11,8 @@ type Idea = {
   title: string;
   description: string | null;
   format: string | null;
-  channel: string | null;
   status: string;
+  source: string;
   pillar: Pillar | null;
 };
 
@@ -29,7 +28,7 @@ export function IdeaBankView({
   const router = useRouter();
   const [ideas, setIdeas] = useState(initialIdeas);
   const [showForm, setShowForm] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   function handleCreate(formData: FormData) {
     startTransition(async () => {
@@ -88,23 +87,12 @@ export function IdeaBankView({
             placeholder="Descrição (opcional)"
             className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-primary"
           />
-          <div className="grid grid-cols-3 gap-2">
-            <select name="format" defaultValue="" className="rounded-md border border-border px-2 py-1.5 text-sm">
-              <option value="">Formato</option>
-              {FORMAT_OPTIONS.map((f) => (
-                <option key={f} value={f}>
-                  {FORMAT_LABELS[f]}
-                </option>
-              ))}
-            </select>
-            <select name="channel" defaultValue="" className="rounded-md border border-border px-2 py-1.5 text-sm">
-              <option value="">Canal</option>
-              {CHANNEL_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {CHANNEL_LABELS[c]}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              name="format"
+              placeholder="Formato (ex: Reels, Carrossel)"
+              className="rounded-md border border-border px-2 py-1.5 text-sm outline-none focus:border-primary"
+            />
             <select name="pillarId" defaultValue="" className="rounded-md border border-border px-2 py-1.5 text-sm">
               <option value="">Pilar</option>
               {pillars.map((p) => (
@@ -116,8 +104,7 @@ export function IdeaBankView({
           </div>
           <button
             type="submit"
-            disabled={isPending}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-60"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-hover"
           >
             Salvar ideia
           </button>
@@ -135,19 +122,21 @@ export function IdeaBankView({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-medium text-foreground">{idea.title}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-foreground">{idea.title}</p>
+                  {idea.source === "CLIENT_REQUEST" && (
+                    <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                      Pedido do cliente
+                    </span>
+                  )}
+                </div>
                 {idea.description && (
                   <p className="mt-0.5 text-sm text-muted">{idea.description}</p>
                 )}
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {idea.format && (
                     <span className="rounded bg-background px-1.5 py-0.5 text-[11px] text-muted">
-                      {FORMAT_LABELS[idea.format]}
-                    </span>
-                  )}
-                  {idea.channel && (
-                    <span className="rounded bg-background px-1.5 py-0.5 text-[11px] text-muted">
-                      {CHANNEL_LABELS[idea.channel]}
+                      {idea.format}
                     </span>
                   )}
                   {idea.pillar && (
@@ -166,10 +155,10 @@ export function IdeaBankView({
                     onClick={() => handleConvert(idea.id)}
                     className="whitespace-nowrap rounded-md border border-primary px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
                   >
-                    Transformar em cartão
+                    Enviar para produção
                   </button>
                 ) : (
-                  <span className="whitespace-nowrap text-xs text-muted">Já no kanban</span>
+                  <span className="whitespace-nowrap text-xs text-muted">Já na produção</span>
                 )}
                 <button
                   onClick={() => handleDelete(idea.id)}

@@ -2,11 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { assertClientAccess } from "@/lib/authz";
-import type { ContentChannel, ContentFormat } from "@/generated/prisma/client";
+import { assertUser } from "@/lib/authz";
 
 export async function createIdeaAction(clientId: string, formData: FormData) {
-  const user = await assertClientAccess(clientId);
+  const user = await assertUser();
 
   const title = String(formData.get("title") || "").trim();
   if (!title) throw new Error("Informe o título da ideia.");
@@ -16,9 +15,9 @@ export async function createIdeaAction(clientId: string, formData: FormData) {
       clientId,
       title,
       description: (formData.get("description") as string) || null,
-      format: (formData.get("format") as ContentFormat) || null,
-      channel: (formData.get("channel") as ContentChannel) || null,
+      format: (formData.get("format") as string) || null,
       pillarId: (formData.get("pillarId") as string) || null,
+      source: "STUDIO",
       createdById: user.id,
     },
     include: { pillar: { select: { id: true, name: true, color: true } } },
@@ -30,14 +29,14 @@ export async function createIdeaAction(clientId: string, formData: FormData) {
 
 export async function deleteIdeaAction(ideaId: string) {
   const idea = await prisma.ideaBank.findUniqueOrThrow({ where: { id: ideaId } });
-  await assertClientAccess(idea.clientId);
+  await assertUser();
   await prisma.ideaBank.delete({ where: { id: ideaId } });
   revalidatePath(`/clientes/${idea.clientId}/ideias`);
 }
 
 export async function convertIdeaToCardAction(ideaId: string) {
   const idea = await prisma.ideaBank.findUniqueOrThrow({ where: { id: ideaId } });
-  const user = await assertClientAccess(idea.clientId);
+  const user = await assertUser();
 
   const firstStage = await prisma.pipelineStage.findFirstOrThrow({
     where: { clientId: idea.clientId },
@@ -50,8 +49,7 @@ export async function convertIdeaToCardAction(ideaId: string) {
         clientId: idea.clientId,
         stageId: firstStage.id,
         title: idea.title,
-        format: idea.format ?? undefined,
-        channel: idea.channel ?? undefined,
+        format: idea.format,
         pillarId: idea.pillarId,
         caption: idea.description,
         position: 0,
@@ -72,6 +70,5 @@ export async function convertIdeaToCardAction(ideaId: string) {
   });
 
   revalidatePath(`/clientes/${idea.clientId}/ideias`);
-  revalidatePath(`/clientes/${idea.clientId}/producao`);
   return card.id;
 }

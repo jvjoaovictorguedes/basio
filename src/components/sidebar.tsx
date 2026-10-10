@@ -5,112 +5,93 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import clsx from "clsx";
 
-type SidebarClient = {
-  id: string;
-  name: string;
-  color: string | null;
+type GeneralPage = { id: string; title: string };
+
+const PAGE_TYPE_ICON: Record<string, string> = {
+  TEXT: "📄",
+  LIST: "☑️",
+  FOLDER: "🗂️",
 };
 
 export function Sidebar({
-  clients,
   userName,
-  userRole,
+  generalPages,
 }: {
-  clients: SidebarClient[];
   userName: string;
-  userRole: "ADMIN" | "COLLABORATOR";
+  generalPages: (GeneralPage & { type: string })[];
 }) {
   const pathname = usePathname();
-  const activeClientId = pathname.match(/^\/clientes\/([^/]+)/)?.[1];
+
+  const navItem = (href: string, label: string) => (
+    <Link
+      href={href}
+      className={clsx(
+        "block rounded-md px-3 py-2 text-sm transition-colors",
+        pathname === href || (href !== "/" && pathname.startsWith(href))
+          ? "bg-primary/10 font-medium text-primary"
+          : "text-foreground hover:bg-background",
+      )}
+    >
+      {label}
+    </Link>
+  );
 
   return (
     <aside className="flex h-full w-60 flex-none flex-col border-r border-border bg-surface">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-4">
+      <div className="flex items-center gap-2 px-4 py-5">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-sm font-semibold text-white">
-          B
+          J
         </div>
-        <span className="text-sm font-semibold text-foreground">Basio Studio</span>
+        <span className="text-sm font-semibold text-foreground">Jota Studio</span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <div className="mb-1 flex items-center justify-between px-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Clientes
-          </span>
-          {userRole === "ADMIN" && (
-            <Link
-              href="/clientes/novo"
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              + novo
-            </Link>
-          )}
+      <nav className="flex-1 overflow-y-auto px-3">
+        <div className="space-y-0.5">
+          {navItem("/", "Minhas tarefas")}
+          {navItem("/clientes", "Clientes")}
+          {navItem("/tarefas", "Tarefas internas")}
         </div>
 
-        <ul className="space-y-0.5">
-          {clients.map((client) => (
-            <li key={client.id}>
-              <Link
-                href={`/clientes/${client.id}/producao`}
-                className={clsx(
-                  "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                  activeClientId === client.id
-                    ? "bg-primary/10 font-medium text-primary"
-                    : "text-foreground hover:bg-background",
-                )}
-              >
-                <span
-                  className="h-2 w-2 flex-none rounded-full"
-                  style={{ backgroundColor: client.color || "#5e6c84" }}
-                />
-                <span className="truncate">{client.name}</span>
-              </Link>
-            </li>
-          ))}
-          {clients.length === 0 && (
-            <li className="px-2 py-1.5 text-sm text-muted">Nenhum cliente ainda.</li>
-          )}
-        </ul>
+        {generalPages.length > 0 && (
+          <div className="mt-6">
+            <span className="px-3 text-xs font-semibold uppercase tracking-wide text-muted">
+              Páginas
+            </span>
+            <div className="mt-1 space-y-0.5">
+              {generalPages.map((page) => (
+                <Link
+                  key={page.id}
+                  href={`/paginas/${page.id}`}
+                  className={clsx(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                    pathname === `/paginas/${page.id}`
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-foreground hover:bg-background",
+                  )}
+                >
+                  <span className="text-xs">{PAGE_TYPE_ICON[page.type]}</span>
+                  <span className="truncate">{page.title}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <div className="mt-4 border-t border-border pt-3">
+        <div className="mt-2">
           <Link
-            href="/clientes"
-            className={clsx(
-              "block rounded-md px-2 py-1.5 text-sm",
-              pathname === "/clientes"
-                ? "bg-primary/10 font-medium text-primary"
-                : "text-foreground hover:bg-background",
-            )}
+            href="/paginas/novo"
+            className="block rounded-md px-3 py-2 text-sm text-muted hover:bg-background"
           >
-            Todos os clientes
+            + Nova página
           </Link>
-          {userRole === "ADMIN" && (
-            <Link
-              href="/acessos"
-              className={clsx(
-                "block rounded-md px-2 py-1.5 text-sm",
-                pathname === "/acessos"
-                  ? "bg-primary/10 font-medium text-primary"
-                  : "text-foreground hover:bg-background",
-              )}
-            >
-              Gestão de acessos
-            </Link>
-          )}
         </div>
       </nav>
 
       <div className="border-t border-border p-3">
-        <Link
-          href="/perfil"
-          className="block truncate rounded-md px-2 py-1.5 text-sm text-foreground hover:bg-background"
-          title={userName}
-        >
-          {userName}
-        </Link>
+        <div className="truncate px-2 py-1 text-sm text-foreground">{userName}</div>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="mt-0.5 w-full rounded-md px-2 py-1.5 text-left text-sm text-muted hover:bg-background"
+          className="w-full rounded-md px-2 py-1.5 text-left text-sm text-muted hover:bg-background"
         >
           Sair
         </button>

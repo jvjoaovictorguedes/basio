@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/authz";
-import { getVisibleClients } from "@/lib/clients-data";
+import { prisma } from "@/lib/prisma";
 import { AppShell } from "@/components/app-shell";
 
 export default async function AuthenticatedLayout({
@@ -8,14 +8,15 @@ export default async function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  const clients = await getVisibleClients(user);
+
+  const generalPages = await prisma.customPage.findMany({
+    where: { clientId: null },
+    orderBy: { position: "asc" },
+    select: { id: true, title: true, type: true },
+  });
 
   return (
-    <AppShell
-      clients={clients.map((c) => ({ id: c.id, name: c.name, color: c.color }))}
-      userName={user.name ?? user.email ?? "Usuário"}
-      userRole={user.role}
-    >
+    <AppShell userName={user.name ?? user.email ?? "Jô"} generalPages={generalPages}>
       {children}
     </AppShell>
   );

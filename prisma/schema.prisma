@@ -1,5 +1,7 @@
-// Prisma schema - [NOME] Studio
-// Modelo de dados da área interna (gestão de conteúdo multi-cliente)
+// Prisma schema - Jota Studio + KardoJota (banco compartilhado)
+// Jota Studio: ferramenta interna da Jô (gestão de todos os clientes)
+// KardoJota: espaço de produção usado com cada cliente (kanban, aprovações, pedidos)
+// Apenas o Jota Studio é construído nesta fase; o modelo já cobre as duas.
 
 generator client {
   provider = "prisma-client"
@@ -12,21 +14,36 @@ datasource db {
 
 // ---------- Enums ----------
 
-enum UserRole {
-  ADMIN
-  COLLABORATOR
-}
-
 enum ClientStatus {
   ACTIVE
   ARCHIVED
 }
 
-enum InviteStatus {
-  PENDING
-  ACCEPTED
-  EXPIRED
-  REVOKED
+enum StageAwaiting {
+  STUDIO
+  CLIENT
+}
+
+enum CardPriority {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+enum CommentAuthorType {
+  STAFF
+  CLIENT
+}
+
+enum ApprovalStatus {
+  PENDENTE
+  APROVADO
+  AJUSTES
+}
+
+enum IdeaSource {
+  STUDIO
+  CLIENT_REQUEST
 }
 
 enum IdeaStatus {
@@ -34,124 +51,96 @@ enum IdeaStatus {
   CONVERTED
 }
 
-enum ContentFormat {
-  POST
-  CARROSSEL
-  REELS
-  STORY
-  VIDEO
-  ARTIGO
-  OUTRO
+enum TaskStatus {
+  PENDENTE
+  CONCLUIDA
 }
 
-enum ContentChannel {
-  INSTAGRAM
-  TIKTOK
-  FACEBOOK
-  LINKEDIN
-  YOUTUBE
-  PINTEREST
-  X
-  OUTRO
+enum StrategyKey {
+  POSICIONAMENTO
+  PERSONA
+  TOM_DE_VOZ
+  PILARES
+}
+
+enum CustomPageType {
+  TEXT
+  LIST
+  FOLDER
 }
 
 // ---------- Identidade ----------
 
-model User {
+model StaffUser {
   id           String   @id @default(uuid())
   name         String
   email        String   @unique
   passwordHash String
-  role         UserRole @default(COLLABORATOR)
   avatarFileId String?
-  avatarFile   File?    @relation("UserAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
+  avatarFile   File?    @relation("StaffAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  createdClients      Client[]             @relation("ClientCreatedBy")
-  clientCollaborations ClientCollaborator[]
-  invitesSent         Invite[]
-  uploadedFiles       File[]               @relation("FileUploadedBy")
-  uploadedDocuments   Document[]
-  cardsResponsible    ContentCard[]        @relation("CardResponsible")
-  cardsCreated        ContentCard[]        @relation("CardCreatedBy")
-  cardComments        CardComment[]
-  stageChanges        CardStageHistory[]
-  ideasCreated        IdeaBank[]
-}
-
-// ---------- Clientes e acesso ----------
-
-model Client {
-  id          String       @id @default(uuid())
-  name        String
-  slug        String       @unique
-  color       String?
-  logoFileId  String?
-  logoFile    File?        @relation("ClientLogo", fields: [logoFileId], references: [id], onDelete: SetNull)
-  status      ClientStatus @default(ACTIVE)
-  createdById String?
-  createdBy   User?        @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  collaborators   ClientCollaborator[]
-  contacts        ClientContact[]
-  invites         Invite[]
-  stages          PipelineStage[]
-  pillars         ContentPillar[]
-  cards           ContentCard[]
-  brandPages      BrandCenterPage[]
-  ideas           IdeaBank[]
-  documentFolders DocumentFolder[]
-  documents       Document[]
-}
-
-model ClientCollaborator {
-  id        String   @id @default(uuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@unique([clientId, userId])
+  createdClients    Client[]           @relation("ClientCreatedBy")
+  cardsCreated      ContentCard[]      @relation("CardCreatedBy")
+  cardComments      CardComment[]
+  stageChanges      CardStageHistory[]
+  ideasCreated      IdeaBank[]
+  uploadedFiles     File[]             @relation("FileUploadedBy")
+  internalTasks     InternalTask[]
 }
 
 model ClientContact {
-  id        String   @id @default(uuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  name      String
-  email     String
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name       String
+  email      String
+  phone      String?
+  authUserId String?
+  createdAt  DateTime @default(now())
 }
 
-model Invite {
-  id          String       @id @default(uuid())
-  email       String
-  name        String?
-  clientIds   String[]
-  token       String       @unique @default(uuid())
-  status      InviteStatus @default(PENDING)
-  clientId    String?
-  client      Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  invitedById String?
-  invitedBy   User?        @relation(fields: [invitedById], references: [id], onDelete: SetNull)
-  createdAt   DateTime     @default(now())
-  acceptedAt  DateTime?
+// ---------- Clientes ----------
+
+model Client {
+  id           String       @id @default(uuid())
+  name         String
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  service      String?
+  status       ClientStatus @default(ACTIVE)
+  createdById  String?
+  createdBy    StaffUser?   @relation("ClientCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  contacts        ClientContact[]
+  stages          PipelineStage[]
+  pillars         ContentPillar[]
+  cards           ContentCard[]
+  ideas           IdeaBank[]
+  strategyPages   StrategyPage[]
+  documentFolders DocumentFolder[]
+  documents       Document[]
+  notes           Note[]
+  internalTasks   InternalTask[]
+  customPages     CustomPage[]
 }
 
-// ---------- Produção (kanban) ----------
+// ---------- Produção (KardoJota) ----------
 
 model PipelineStage {
-  id        String   @id @default(uuid())
+  id        String        @id @default(uuid())
   clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   name      String
   position  Int
   color     String?
-  createdAt DateTime @default(now())
+  awaiting  StageAwaiting @default(STUDIO)
+  isFinal   Boolean       @default(false)
+  createdAt DateTime      @default(now())
 
   cards            ContentCard[]
   stageHistoryFrom CardStageHistory[] @relation("FromStage")
@@ -175,36 +164,36 @@ model ContentPillar {
 }
 
 model ContentCard {
-  id              String         @id @default(uuid())
-  clientId        String
-  client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  stageId         String
-  stage           PipelineStage  @relation(fields: [stageId], references: [id])
-  title           String
-  format          ContentFormat  @default(POST)
-  channel         ContentChannel @default(INSTAGRAM)
-  pillarId        String?
-  pillar          ContentPillar? @relation(fields: [pillarId], references: [id], onDelete: SetNull)
-  scheduledAt     DateTime?
-  responsibleId   String?
-  responsible     User?          @relation("CardResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
-  script          String?
-  caption         String?
-  internalNotes   String?
-  visibleToClient Boolean        @default(false)
-  position        Float          @default(0)
-  createdById     String?
-  createdBy       User?          @relation("CardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id            String        @id @default(uuid())
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  stageId       String
+  stage         PipelineStage @relation(fields: [stageId], references: [id])
+  title         String
+  format        String?
+  channel       String?
+  pillarId      String?
+  pillar        ContentPillar? @relation(fields: [pillarId], references: [id], onDelete: SetNull)
+  dueDate       DateTime?
+  priority      CardPriority  @default(MEDIA)
+  script        String?
+  caption       String?
+  internalNotes String?
+  visibleToClient Boolean     @default(false)
+  position      Float         @default(0)
+  createdById   String?
+  createdBy     StaffUser?    @relation("CardCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   attachments  CardAttachment[]
   comments     CardComment[]
+  approvals    CardApproval[]
   stageHistory CardStageHistory[]
   ideaOrigin   IdeaBank?          @relation("IdeaConverted")
 
   @@index([clientId, stageId])
-  @@index([clientId, scheduledAt])
+  @@index([clientId, dueDate])
 }
 
 model CardAttachment {
@@ -212,63 +201,48 @@ model CardAttachment {
   cardId    String
   card      ContentCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
   fileId    String
-  file      File        @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  file      File        @relation("CardAttachmentFile", fields: [fileId], references: [id], onDelete: Cascade)
   createdAt DateTime    @default(now())
 }
 
 model CardComment {
-  id        String      @id @default(uuid())
-  cardId    String
-  card      ContentCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  authorId  String?
-  author    User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  body      String
-  createdAt DateTime    @default(now())
+  id         String            @id @default(uuid())
+  cardId     String
+  card       ContentCard       @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  authorType CommentAuthorType @default(STAFF)
+  authorId   String?
+  author     StaffUser?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorName String?
+  body       String
+  createdAt  DateTime          @default(now())
+}
+
+model CardApproval {
+  id          String         @id @default(uuid())
+  cardId      String
+  card        ContentCard    @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  status      ApprovalStatus @default(PENDENTE)
+  requestedAt DateTime       @default(now())
+  decidedAt   DateTime?
+  decidedBy   String?
+  notes       String?
 }
 
 model CardStageHistory {
-  id          String        @id @default(uuid())
+  id          String         @id @default(uuid())
   cardId      String
-  card        ContentCard   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  card        ContentCard    @relation(fields: [cardId], references: [id], onDelete: Cascade)
   fromStageId String?
   fromStage   PipelineStage? @relation("FromStage", fields: [fromStageId], references: [id], onDelete: SetNull)
   toStageId   String
-  toStage     PipelineStage @relation("ToStage", fields: [toStageId], references: [id], onDelete: Cascade)
+  toStage     PipelineStage  @relation("ToStage", fields: [toStageId], references: [id], onDelete: Cascade)
   changedById String?
-  changedBy   User?         @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  changedBy   StaffUser?     @relation(fields: [changedById], references: [id], onDelete: SetNull)
   note        String?
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime       @default(now())
 }
 
-// ---------- Central da marca ----------
-
-model BrandCenterPage {
-  id        String   @id @default(uuid())
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  title     String
-  slug      String
-  position  Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  sections BrandCenterSection[]
-
-  @@index([clientId, position])
-}
-
-model BrandCenterSection {
-  id        String          @id @default(uuid())
-  pageId    String
-  page      BrandCenterPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  heading   String
-  content   String          @default("")
-  position  Int             @default(0)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-}
-
-// ---------- Banco de ideias ----------
+// ---------- Banco de ideias / pedidos de material ----------
 
 model IdeaBank {
   id              String         @id @default(uuid())
@@ -276,19 +250,32 @@ model IdeaBank {
   client          Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
   title           String
   description     String?
-  format          ContentFormat?
-  channel         ContentChannel?
+  format          String?
   pillarId        String?
   pillar          ContentPillar? @relation(fields: [pillarId], references: [id], onDelete: SetNull)
+  source          IdeaSource     @default(STUDIO)
   status          IdeaStatus     @default(PENDING)
   convertedCardId String?        @unique
   convertedCard   ContentCard?   @relation("IdeaConverted", fields: [convertedCardId], references: [id], onDelete: SetNull)
   createdById     String?
-  createdBy       User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy       StaffUser?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt       DateTime       @default(now())
 }
 
-// ---------- Documentos ----------
+// ---------- Estratégia ----------
+
+model StrategyPage {
+  id        String      @id @default(uuid())
+  clientId  String
+  client    Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  key       StrategyKey
+  content   String      @default("")
+  updatedAt DateTime    @updatedAt
+
+  @@unique([clientId, key])
+}
+
+// ---------- Documentos e contratos ----------
 
 model DocumentFolder {
   id             String           @id @default(uuid())
@@ -304,17 +291,103 @@ model DocumentFolder {
 }
 
 model Document {
-  id           String          @id @default(uuid())
-  clientId     String
-  client       Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  folderId     String?
-  folder       DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  fileId       String
-  file         File            @relation("DocumentFile", fields: [fileId], references: [id], onDelete: Cascade)
-  name         String
-  uploadedById String?
-  uploadedBy   User?           @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
-  createdAt    DateTime        @default(now())
+  id                 String          @id @default(uuid())
+  clientId           String
+  client             Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  folderId           String?
+  folder             DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  fileId             String
+  file               File            @relation("DocumentFile", fields: [fileId], references: [id], onDelete: Cascade)
+  name               String
+  isContract         Boolean         @default(false)
+  contractExpiresAt  DateTime?
+  uploadedById       String?
+  createdAt          DateTime        @default(now())
+}
+
+// ---------- Anotações ----------
+
+model Note {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title     String?
+  content   String
+  noteDate  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments NoteAttachment[]
+}
+
+model NoteAttachment {
+  id        String   @id @default(uuid())
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  fileId    String
+  file      File     @relation("NoteAttachmentFile", fields: [fileId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// ---------- Tarefas internas ----------
+
+model InternalTask {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  priority    CardPriority @default(MEDIA)
+  status      TaskStatus   @default(PENDENTE)
+  clientId    String?
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   StaffUser?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  completedAt DateTime?
+}
+
+// ---------- Páginas personalizadas ----------
+
+model CustomPage {
+  id        String         @id @default(uuid())
+  clientId  String?
+  client    Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type      CustomPageType
+  title     String
+  position  Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  textContent CustomPageTextContent?
+  listItems   CustomPageListItem[]
+  files       CustomPageFile[]
+
+  @@index([clientId, position])
+}
+
+model CustomPageTextContent {
+  pageId  String     @id
+  page    CustomPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  content String     @default("")
+}
+
+model CustomPageListItem {
+  id        String     @id @default(uuid())
+  pageId    String
+  page      CustomPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  title     String
+  done      Boolean    @default(false)
+  position  Int        @default(0)
+  createdAt DateTime   @default(now())
+}
+
+model CustomPageFile {
+  id        String     @id @default(uuid())
+  pageId    String
+  page      CustomPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  fileId    String
+  file      File       @relation("CustomPageFile", fields: [fileId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
 }
 
 // ---------- Armazenamento de arquivos (bytea no Postgres) ----------
@@ -326,11 +399,12 @@ model File {
   sizeBytes    Int
   data         Bytes
   uploadedById String?
-  uploadedBy   User?    @relation("FileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedBy   StaffUser? @relation("FileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now())
 
-  cardAttachments CardAttachment[]
-  documents       Document[]       @relation("DocumentFile")
-  clientLogos     Client[]         @relation("ClientLogo")
-  userAvatars     User[]           @relation("UserAvatar")
+  cardAttachments CardAttachment[]   @relation("CardAttachmentFile")
+  documents       Document[]         @relation("DocumentFile")
+  noteAttachments NoteAttachment[]   @relation("NoteAttachmentFile")
+  customPageFiles CustomPageFile[]   @relation("CustomPageFile")
+  staffAvatars    StaffUser[]        @relation("StaffAvatar")
 }

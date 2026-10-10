@@ -20,7 +20,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        const user = await prisma.user.findUnique({
+        const user = await prisma.staffUser.findUnique({
           where: { email: email.toLowerCase().trim() },
         });
         if (!user) return null;
@@ -32,7 +32,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
         };
       },
     }),

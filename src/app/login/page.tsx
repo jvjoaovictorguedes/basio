@@ -9,7 +9,7 @@ export default async function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-8 shadow-sm">
-        <h1 className="mb-1 text-xl font-semibold text-foreground">Basio Studio</h1>
+        <h1 className="mb-1 text-xl font-semibold text-foreground">Jota Studio</h1>
         <p className="mb-6 text-sm text-muted">Entre com sua conta para continuar.</p>
         <LoginForm />
       </div>

@@ -1,23 +1,34 @@
-export const FORMAT_LABELS: Record<string, string> = {
-  POST: "Post",
-  CARROSSEL: "Carrossel",
-  REELS: "Reels",
-  STORY: "Story",
-  VIDEO: "Vídeo",
-  ARTIGO: "Artigo",
-  OUTRO: "Outro",
+export const PRIORITY_LABELS: Record<string, string> = {
+  BAIXA: "Baixa",
+  MEDIA: "Média",
+  ALTA: "Alta",
 };
 
-export const CHANNEL_LABELS: Record<string, string> = {
-  INSTAGRAM: "Instagram",
-  TIKTOK: "TikTok",
-  FACEBOOK: "Facebook",
-  LINKEDIN: "LinkedIn",
-  YOUTUBE: "YouTube",
-  PINTEREST: "Pinterest",
-  X: "X (Twitter)",
-  OUTRO: "Outro",
+export const PRIORITY_OPTIONS = ["BAIXA", "MEDIA", "ALTA"];
+
+export const PRIORITY_COLORS: Record<string, string> = {
+  BAIXA: "#5e6c84",
+  MEDIA: "#ff8b00",
+  ALTA: "#c9372c",
 };
 
-export const FORMAT_OPTIONS = Object.keys(FORMAT_LABELS);
-export const CHANNEL_OPTIONS = Object.keys(CHANNEL_LABELS);
+export const STRATEGY_LABELS: Record<string, string> = {
+  POSICIONAMENTO: "Posicionamento",
+  PERSONA: "Persona",
+  TOM_DE_VOZ: "Tom de voz",
+  PILARES: "Pilares de conteúdo",
+};
+
+export type Semaphore = "EM_DIA" | "ATENCAO" | "ATRASADO";
+
+export const SEMAPHORE_LABELS: Record<Semaphore, string> = {
+  EM_DIA: "Em dia",
+  ATENCAO: "Atenção",
+  ATRASADO: "Atrasado",
+};
+
+export const SEMAPHORE_COLORS: Record<Semaphore, string> = {
+  EM_DIA: "#36b37e",
+  ATENCAO: "#ff8b00",
+  ATRASADO: "#c9372c",
+};
